@@ -119,8 +119,13 @@ func (repo *DBRepository) CreateUser(ctx context.Context, user *storage.User) er
 	})
 	if err != nil {
 		var aerr awserr.Error
-		if errors.As(err, &aerr) && aerr.Code() == dynamodb.ErrCodeConditionalCheckFailedException {
-			return fmt.Errorf("user with email %s already exists", user.Email)
+		if errors.As(err, &aerr) {
+			switch aerr.Code() {
+			case dynamodb.ErrCodeConditionalCheckFailedException:
+				return fmt.Errorf("user with email %s already exists", user.Email)
+			case dynamodb.ErrCodeResourceNotFoundException:
+				return fmt.Errorf("table %s not found: %w", repo.tableName, err)
+			}
 		}
 		return fmt.Errorf("failed to create user in DynamoDB: %w", err)
 	}

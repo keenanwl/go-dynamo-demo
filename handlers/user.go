@@ -98,7 +98,7 @@ func (h *Handlers) Login(w http.ResponseWriter, r *http.Request) {
 		Name:     "token",
 		Value:    tokenString,
 		HttpOnly: true,
-		Secure:   true, // Set to true if using HTTPS
+		Secure:   false, // TODO: so we can deploy to http for demo simplicity
 		SameSite: http.SameSiteStrictMode,
 		Path:     "/",
 		MaxAge:   3600, // 1 hour

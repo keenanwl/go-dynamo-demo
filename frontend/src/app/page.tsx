@@ -15,12 +15,15 @@ const LoginPage = () => {
     setError('');
 
     try {
-      const { token } = await userService.login({ email, password });
+      await userService.login({ email, password });
 
       // Server sets auth cookie
 
       // You might also want to store user info or update global state
       console.log('Logged in successfully');
+
+      // Seems to be required before changing routes when deployed statically?
+      router.prefetch('/dashboard');
 
       // Redirect to dashboard or home page after successful login
       router.push('/dashboard');

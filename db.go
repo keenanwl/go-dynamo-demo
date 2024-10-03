@@ -18,9 +18,9 @@ func setupDynamoDB() *dynamodb.DynamoDB {
 	// Uses local Dynamo instance for now
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		Config: aws.Config{
-			Endpoint:    aws.String("http://localhost:8000"),
-			Region:      aws.String("ap-southeast-1"),
-			Credentials: credentials.NewStaticCredentials("fake", "fake", ""),
+			Endpoint:    aws.String("https://dynamodb.eu-north-1.amazonaws.com"),
+			Region:      aws.String("eu-north-1"),
+			Credentials: credentials.NewEnvCredentials(), // Expects environment file
 		},
 	}))
 

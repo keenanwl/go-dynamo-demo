@@ -1,3 +1,6 @@
 /data/
 /backend
 .idea
+/.secrets/
+/deploy/tf/terraform.tfstate
+/deploy/tf/terraform.tfstate.backup

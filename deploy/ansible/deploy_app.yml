@@ -1,0 +1,116 @@
+---
+- name: Deploy Dynamo Demo
+  hosts: webservers
+  become: yes
+  vars:
+    app_name: dynamo-demo
+    app_directory: "/var/{{ app_name }}"
+    secrets_file: "../../.secrets/.aws-secrets"
+
+  tasks:
+    - name: Update and upgrade Ubuntu
+      apt:
+        upgrade: yes
+        update_cache: yes
+
+    - name: Create project directory
+      file:
+        path: "{{ app_directory }}"
+        state: directory
+        mode: '0755'
+
+    - name: Install nginx
+      apt: name=nginx update_cache=yes
+
+    - name: Configure Nginx
+      template:
+        src: templates/nginx_config.j2
+        dest: /etc/nginx/sites-available/{{ app_name }}.conf
+      #notify: Restart Nginx
+
+    - name: Enable Nginx site
+      file:
+        src: /etc/nginx/sites-available/{{ app_name }}.conf
+        dest: /etc/nginx/sites-enabled/{{ app_name }}.conf
+        state: link
+      notify: Restart Nginx
+
+    - name: Remove default Nginx site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: Restart Nginx
+
+    - name: Install UFW
+      apt:
+        name: ufw
+        state: present
+
+    - name: Configure UFW defaults
+      ufw:
+        default: deny
+        direction: incoming
+        logging: on
+
+    - name: Allow SSH
+      ufw:
+        rule: allow
+        port: '22'
+
+    - name: Allow HTTP
+      ufw:
+        rule: allow
+        port: '80'
+
+    - name: Allow HTTPS
+      ufw:
+        rule: allow
+        port: '443'
+
+    - name: Enable UFW
+      ufw:
+        state: enabled
+
+    - name: Copy Golang application
+      copy:
+        src: ../../backend
+        dest: "{{ app_directory }}/{{ app_name }}"
+        mode: '0755'
+      notify: Restart application
+
+    - name: Create working directory
+      file:
+        path: "{{ app_directory }}/working"
+        state: directory
+        mode: '0755'
+
+    # TODO improve secrets management, this is just a demo
+    - name: Copy AWS secrets file
+      copy:
+        src: "{{ secrets_file }}"
+        dest: "{{ app_directory }}/.aws-secrets"
+        mode: '0600'
+
+    - name: Set up systemd service
+      template:
+        src: templates/service_tmpl.j2
+        dest: /etc/systemd/system/{{ app_name }}.service
+      notify: Restart application
+
+    - name: Start and enable application service
+      systemd:
+        name: "{{ app_name }}"
+        state: started
+        enabled: yes
+        daemon_reload: yes
+
+  handlers:
+    - name: Restart Nginx
+      systemd:
+        name: nginx
+        state: restarted
+
+    - name: Restart application
+      systemd:
+        name: "{{ app_name }}"
+        state: restarted

@@ -2,12 +2,18 @@ package main
 
 import (
 	"context"
+	"embed"
+	"fmt"
 	"github.com/go-chi/chi/v5/middleware"
 	"go-dynamo-demo/handlers"
 	"go-dynamo-demo/storage"
 	"go-dynamo-demo/storage/dynamo"
+	"io/fs"
 	"log"
 	"net/http"
+	"os"
+	"path"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -16,6 +22,11 @@ func initRepository() *storage.Client {
 	svc := setupDynamoDB()
 	return dynamo.NewClient(svc, tableName)
 }
+
+// Requires that frontend is built (yarn run build) before building the backend
+//
+//go:embed frontend/out/**
+var staticFrontendFiles embed.FS
 
 func main() {
 
@@ -50,8 +61,54 @@ func main() {
 		})
 	})
 
+	// Serve static files and handle SPA routing
+	r.Get("/*", fsHandler(removeFsPrefix(staticFrontendFiles, "frontend/out"), "/"))
+
+	log.Println("Embedded NextJS static files")
+	walkEmbedFS()
+	// TODO: handle logs
 	log.Println("Listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", r))
+}
+
+func walkEmbedFS() error {
+	return fs.WalkDir(staticFrontendFiles, ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			fmt.Println("File:", p)
+		}
+		return nil
+	})
+}
+
+func removeFsPrefix(embedded embed.FS, prefix string) fs.FS {
+	output, err := fs.Sub(embedded, prefix)
+	if err != nil {
+		panic(fmt.Errorf("failed getting the sub tree for the site files: %w", err))
+	}
+	return output
+}
+
+// urlPrefix removes the URL.Path so Path does not have to
+// match the embedded FS path
+func fsHandler(embedded fs.FS, urlPrefix string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		baseTrim := strings.TrimPrefix(path.Clean(r.URL.Path), urlPrefix)
+		f, err := embedded.Open(baseTrim)
+		if err == nil {
+			defer f.Close()
+		}
+
+		fmt.Println(baseTrim, err)
+		if os.IsNotExist(err) {
+			r.URL.Path = "/"
+		} else {
+			r.URL.Path = baseTrim
+		}
+		http.FileServer(http.FS(embedded)).ServeHTTP(w, r)
+	}
 }
 
 // TODO: Just demo data, not intended for production

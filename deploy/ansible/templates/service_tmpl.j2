@@ -1,0 +1,15 @@
+[Unit]
+Description={{ app_name }} node for {{ inventory_hostname }}
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5s
+
+WorkingDirectory={{ app_directory }}/working
+EnvironmentFile={{ app_directory }}/.aws-secrets
+# TODO improve secrets management, this is just a demo
+ExecStart=/bin/bash -c 'source {{ app_directory }}/.aws-secrets && {{ app_directory }}/{{ app_name }}'
+
+[Install]
+WantedBy=multi-user.target
